@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------- SAN MARTIN'S STORE ANALYSIS -------------------------------------------------------------------------
+------------------------------------------------------------ SAN MARTIN'S STORE SALES ANALYSIS -------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -19,25 +19,18 @@ SELECT * FROM Sales_agents;
 
 
 
---------------------------------------------------------------CREATING ADDITIONAL FIELDS---------------------------------------------------------------------
+-------------------------------------------------------------- FEATURE CONSTRUCTION ---------------------------------------------------------------------
 
--- ADDING COLUMN 'DAY' WHICH EXTRACTS DAY NAME FROM ORDER DATE
+-- Adding column 'DAY' which extracts day name from order date
 ALTER TABLE Sales 
 ADD Day varchar(10);
 
 UPDATE Sales SET Day = DATENAME(WEEKDAY, [Order Date])
 FROM Sales;
 
--- ADDING COLUMN 'IS_WEEKEND' TO CATEGORIZE WHETHER A TRANSACTION WAS MADE ON WEEKENDS OR NOT.
-ALTER TABLE Sales 
-ADD Is_weekend varchar(10);
-
-UPDATE Sales SET Is_weekend = (CASE WHEN Day in ('Saturday', 'Sunday') THEN 'Weekend'
-ELSE 'Weekday' END)
-FROM Sales;
 
 
-------------------------------------------------------------------INITIAL ANALYSES ----------------------------------------------------------------------------
+------------------------------------------------------------------ PRELIMINARY ANALYSES ----------------------------------------------------------------------------
 
 --- 1. Number of customers  
 SELECT DISTINCT count([Customer Key])
@@ -63,7 +56,7 @@ FROM Sales;
 SELECT DISTINCT count([Sales Agent Key])
 FROM Sales_agents;
 
-------------------------------------------------------------VERIFYING PRESENCE OF ALL THE DETAILS------------------------------------------------------------------
+------------------------------------------------------------ CHECKING MISSING VALUES ------------------------------------------------------------------
 
 ---7. Checking if we have customer details of all the customers who make transactions 
 SELECT DISTINCT Sales.[Customer Key] FROM Sales
@@ -86,9 +79,9 @@ LEFT JOIN Locations on sales.[Region Key] = Locations.[Region Key]
 WHERE Locations.[Region Key] IS NULL;
 
 
--------------------------------------------------------------------SALES ANALYSIS----------------------------------------------------------------------------------
+------------------------------------------------------------------- SALES ANALYSIS ----------------------------------------------------------------------------------
 
----11. how many orders, customers, products, sales agents, stores and location involved in transactions made.
+---11. How many orders, customers, products, sales agents, stores and location involved in transactions made.
 SELECT COUNT(*) AS num_orders, COUNT(DISTINCT [Customer Key]) as num_customers, COUNT(DISTINCT [Product Key]) as num_products, 
        COUNT( DISTINCT [Sales Agent Key]) as num_agents, COUNT(DISTINCT [Store Key]) as num_stores, COUNT(DISTINCT [Region Key]) AS num_location
 FROM Sales;
@@ -103,7 +96,7 @@ FROM Sales;
 
 
 
----------------------------------------------------------------- TIME BASED ANALYSIS-------------------------------------------------------------------------------------
+---------------------------------------------------------------- TIME-BASED ANALYSIS -------------------------------------------------------------------------------------
 
 ---1. Total Sales over Time
 SELECT [Order Date], sum(Sales.sales) as total_sales
@@ -112,51 +105,53 @@ GROUP BY [Order Date]
 ORDER BY [Order Date];
 
 ---2. Sales Growth Rate
-SELECT [Order Date], sum(Sales.sales) as total_sales, round(((sum(sales) - lag(sum(sales), 1) OVER (ORDER BY [Order Date]))/  lag(sum(sales), 1) OVER (ORDER BY [Order Date]))*100,0) as growth_rate
+SELECT [Order Date], sum(Sales.sales) as total_sales, 
+	   round(((sum(sales) - lag(sum(sales), 1) OVER (ORDER BY [Order Date]))/  lag(sum(sales), 1) OVER (ORDER BY [Order Date]))*100,0) 
+	   as growth_rate
 FROM Sales
 GROUP BY [Order Date]
 ORDER BY [Order Date];
 
----3. Average Monthly Sales
+---3. Average Sales
 SELECT round(avg(sales),2) as Jan_avg_sales
 FROM Sales;
 
 
------------------------------------------------------------------ Customer Analysis--------------------------------------------------------------------------
+----------------------------------------------------------------- CUSTOMER SEGMENTATION --------------------------------------------------------------------------
 
 --1(a.)Customer Segmentation based on Purchase Frequency - 
 
 SELECT c.Customers, count(*) as purchase_freq, 
         CASE
-			WHEN count(*) > 5 THEN 'High-Frequency Customers'
-			WHEN count(*) BETWEEN 2 AND 5 THEN 'Medium-Frequency Customers'
-			ELSE 'Low-Frequency Customers'
+			WHEN count(*) > 5 THEN 'Prime Customers'
+			WHEN count(*) BETWEEN 2 AND 5 THEN 'Active Customers'
+			ELSE 'One-time Customers'
 		END AS segment
 FROM Sales s JOIN Customers c on c.[Customer Key] = s.[Customer Key]
 group by c.Customers
 ORDER BY purchase_freq desc;
 
---2(b.)  Distribution of Purchase Frequency Segment
+--1(b.)  Distribution of Purchase Frequency Segment
 
 SELECT  (CASE 
-			WHEN num_orders > 5 THEN 'High-Frequency Customers'
-			WHEN num_orders BETWEEN 2 AND 5 THEN 'Medium-Frequency Customers'
-			ELSE 'Low-Frequency Customers' END) AS Frequency, COUNT(*) as num_customers
+			WHEN num_orders > 5 THEN 'Prime Customers'
+			WHEN num_orders BETWEEN 2 AND 5 THEN 'Active Customers'
+			ELSE 'One-time Customers' END) AS Frequency, COUNT(*) as num_customers
 FROM    (SELECT Sales.[Customer Key], COUNT(*) as num_orders 
 		 FROM Sales JOIN Customers on sales.[Customer Key] = Customers.[Customer Key] 
 		 group by sales.[Customer Key]) o
-GROUP BY  (CASE WHEN num_orders > 5 THEN 'High-Frequency Customers'
-        WHEN num_orders BETWEEN 2 AND 5 THEN 'Medium-Frequency Customers'
-		ELSE 'Low-Frequency Customers' END) 
+GROUP BY  (CASE WHEN num_orders > 5 THEN 'Prime Customers'
+        WHEN num_orders BETWEEN 2 AND 5 THEN 'Active Customers'
+		ELSE 'One-time Customers' END) 
 ORDER BY num_customers desc;
 
 
---2(a.)Customer Segmentation based on Total Spend -
+--2(a.)Customer Segmentation based on Total Amount Spent -
 SELECT c.Customers, sum(s.Sales) as total_sales, 
 		CASE
-			WHEN sum(s.Sales) > 20000 THEN 'High-Spend Customers'
-			WHEN sum(s.Sales) BETWEEN 10000 AND 20000 THEN 'Medium-Spend Customers'
-			ELSE 'Low-Spend Customers'
+			WHEN sum(s.Sales) > 15000 THEN 'Big Spenders'
+			WHEN sum(s.Sales) BETWEEN 8000 AND 15000 THEN 'Average Spenders'
+			ELSE 'Penny Spenders'
 		END AS segment
 FROM Sales s JOIN Customers c on c.[Customer Key] = s.[Customer Key]
 GROUP BY c.Customers
@@ -167,13 +162,14 @@ ORDER BY total_sales desc;
 SELECT segment, count(segment) as num_customers
 FROM (select c.Customers, sum(s.Sales) as total_sales, 
 		CASE
-			WHEN sum(s.Sales) > 20000 THEN 'High-Spend Customers'
-			WHEN sum(s.Sales) BETWEEN 10000 AND 20000 THEN 'Medium-Spend Customers'
-			ELSE 'Low-Spend Customers'
+			WHEN sum(s.Sales) > 15000 THEN 'Big Spenders'
+			WHEN sum(s.Sales) BETWEEN 8000 AND 15000 THEN 'Average Spenders'
+			ELSE 'Penny Spenders'
 		END AS segment
 	  FROM Sales s JOIN Customers c on c.[Customer Key] = s.[Customer Key]
 	  group by c.Customers) g
 GROUP BY segment;
+
 
 ---3. Average purchase value
 SELECT avg(sales) FROM sales;
@@ -203,56 +199,65 @@ FROM (SELECT c.Customers, case
 GROUP BY purchase_value;
 
 
-------------------------------------------------------------------Geographic Analysis-------------------------------------------------------------------------
+------------------------------------------------------------------ REGIONAL ANALYSIS -------------------------------------------------------------------------
 
 -- 1. Regional Sales Performance- Sales by Region
 
-SELECT l.Region, sum(s.sales) as total_sales
+WITH total_profit AS (SELECT SUM(Profit) as total_profit FROM Sales), 
+     total_sales AS (SELECT SUM(Sales) as total_sales FROM Sales)
+
+SELECT  l.Region, 
+		COUNT(DISTINCT s.[Store Key]) as number_of_stores,
+		COUNT(DISTINCT s.[Product Key]) as number_of_products, 
+		SUM(s.Quantity) as total_quantity,
+		COUNT(DISTINCT s.[Customer Key]) as number_of_customers, 
+		ROUND(sum(s.sales),0) as total_sales, 
+		ROUND(SUM(s.Sales) * 100 / (SELECT total_sales FROM total_sales),2) as sales_perc, 
+		ROUND(SUM(s.Profit),0) as total_profit,
+		ROUND(SUM(s.Profit) * 100 / (SELECT total_profit FROM total_profit),2) as profit_perc
+
 FROM Sales s JOIN Locations l on s.[Region Key] = l.[Region Key]
 GROUP BY l.Region
-ORDER BY total_sales desc;
-
--- 2. Market Penetration - Percentage of Total Sales by Region
-
-SELECT l.Region, sum(s.sales) as total_sales, round((100 * sum(s.sales)) / sum(sum(s.sales)) over (), 2) as sales_contribution
-FROM Sales s JOIN Locations l on s.[Region Key] = l.[Region Key]
-GROUP BY l.Region;
+ORDER BY total_sales desc; 
 
 
 
----------------------------------------------------------------Sales Channel Analysis -----------------------------------------------------------------------------------------
 
----- 1. Total/Average Sales FOR STORE
+--------------------------------------------------------------- STORE PERFORMANCE ANALYSIS -----------------------------------------------------------------------------------------
+
+---- 1. Total/Average Sales for each store
 
 SELECT sales.[Store Key], Stores.stores , sum(Sales.sales) as total_sales, avg(Sales.sales) as avg_sales
 FROM Sales JOIN Stores on sales.[Store Key] = Stores.[Store Key]
 GROUP BY sales.[Store Key], Stores.stores
 ORDER BY total_sales desc;
 
--- max sales through Tienda Peleas de Abajo store.
+-- Tienda Peleas de Abajo store saw the highest sales volume.
 
---- 2. Total/Average Sales FOR LOCATION
 
-SELECT Sales.[Region Key], Locations.Region, sum(Sales.sales) as total_sales
+--- 2. Total/Average Sales for each location
+
+SELECT Sales.[Region Key], Locations.Region, sum(Sales.sales) as total_sales, ROUND(AVG(Sales.Sales),2) as avg_sales
 FROM Sales JOIN Locations on Sales.[Region Key] = Locations.[Region Key]
 GROUP BY Sales.[Region Key], Locations.Region
 ORDER BY total_sales desc;
 
--- total_sales were through Aragon region. 
+-- The Aragon region recorded the highest sales
 
----3. Sales by Sales Agents
+
+---3. Sales performance by Sales Agents
 
 SELECT sales.[Sales Agent Key], Sales_agents.[Sales Agent Name],sum(Sales.sales) as total_sales
 FROM Sales JOIN Sales_agents on sales.[Sales Agent Key] = Sales_agents.[Sales Agent Key]
 GROUP BY sales.[Sales Agent Key], Sales_agents.[Sales Agent Name]
 ORDER BY total_sales desc;
 
--- max sales by RZ-874(Juanito Pacheco Quintero)
+-- RZ-874(Juanito Pacheco Quintero) achieved the highest sales record
 
 
--------------------------------------------------------------- Product Performance Analysis------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------- PRODUCT PERFORMANCE ANALYSIS ------------------------------------------------------------------------------------------------------
 
---1. Best-selling Products- Top N Products by Sales
+--1. Best-selling Products- Top N Products by Sales 
 
 SELECT TOP 10 P.Products, SUM(S.SALES) AS total_sales
 FROM Sales S JOIN Products P ON S.[Product Key] = P.[Product Key]
@@ -269,15 +274,12 @@ ORDER BY total_sales desc;
 
 --3. Profitability of Each Product - Product Contribution Margin
 
-SELECT P.Products, sum(S.Sales) as Total_sales, SUM(S.[Unit Cost] * S.Quantity) AS Total_Var_Cost, ((SUM(S.Sales) - SUM(S.[Unit Cost] * S.Quantity)) / SUM(S.Sales)) * 100 as Profit_contribution 
+SELECT P.Products, sum(S.Sales) as Total_sales, SUM(S.[Unit Cost] * S.Quantity) AS Total_Var_Cost, 
+	   ROUND((SUM(S.Sales) - SUM(S.[Unit Cost] * S.Quantity)) / SUM(S.Sales) * 100,0) as Profit_contribution
 FROM Sales S JOIN Products P ON S.[Product Key] = P.[Product Key]
 GROUP BY P.Products
 ORDER BY Profit_contribution desc;
 
-SELECT P.Products, Sum(S.Profit) / sum(S.Sales) * 100 as profit_cont
-FROM Sales S JOIN Products P ON S.[Product Key] = P.[Product Key]
-GROUP BY P.Products
-ORDER BY profit_cont desc;
 
 --4. Product Category Distribution
 
@@ -299,7 +301,7 @@ ORDER BY total_qty desc;
 
 
 
------------------------------------------------------------Time to Fulfillment Analysis-----------------------------------------------------------------------
+----------------------------------------------------------- TIME TO FULFILLMENT ANALYSIS-----------------------------------------------------------------------
 
 
 --1. Order Processing Time - Average Time to Fulfill an Order
@@ -307,14 +309,14 @@ SELECT Avg(DATEDIFF(Day, [Order Date], [Shipping date]))
 FROM Sales;
 
 
---2. Order Processing Time - Average Time to Fulfill an Order based on each Store
+--2. Order Processing Time - Average time to fulfill an order based on each Store
 SELECT St.stores, Avg(DATEDIFF(Day, [Order Date], [Shipping date]))
 FROM Sales S JOIN Stores St on S.[Store Key] = St.[Store Key]
 Group by st.Stores;
 
 
 
----------------------------------------------------------------------Cost Analysis-------------------------------------------------------------------------------------
+--------------------------------------------------------------------- COST ANALYSIS -------------------------------------------------------------------------------------
 
 --1. Cost of Goods Sold (COGS)
 SELECT sum(cost) as total_cost, avg(cost) as avg_cost
@@ -328,7 +330,7 @@ FROM Sales;
 
 
 
--------------------------------------------------------------------Quantity Analysis---------------------------------------------------------------------------
+------------------------------------------------------------------- QUANTITY ANALYSIS ---------------------------------------------------------------------------
 
 --1. Quantity Trends Over Time
 SELECT [Order Date], sum(Quantity) as total_quantity
@@ -338,7 +340,7 @@ Order by [Order Date];
 
 
 --2 Average Quantity bought 
-SELECT avg(Quantity)
+SELECT avg(Quantity) as avg_quantity
 FROM Sales;
 
 
@@ -349,7 +351,7 @@ GROUP BY  c.[Customers]
 ORDER BY total_quantity desc;
 
 
----4. Highest Quantity bought FROM which store
+---4. Top Stores with highest quantity sold
 
 SELECT st.Stores, sum(s.Quantity) as total_qty
 FROM Sales s JOIN Stores st on s.[Store Key] = st.[Store Key]
@@ -359,16 +361,16 @@ ORDER BY total_qty desc;
 
 
 
--------------------------------------------------------------------SALES AGENTS ANALYSIS---------------------------------------------------------------------------
+-------------------------------------------------------------------SALES AGENT PERFORMANCE ANALYSIS---------------------------------------------------------------------------
 
----1. BEST PERFROMING SALES AGENTS
-SELECT SA.[Sales Agent Name], SUM(S.Sales) as total_sales
+---1. BEST PERFROMING SALES AGENTS- TOTAL SALES
+SELECT TOP 3 SA.[Sales Agent Name], ROUND(SUM(S.Sales),2) as total_sales
 FROM Sales S JOIN Sales_agents SA ON S.[Sales Agent Key] = SA.[Sales Agent Key]
 GROUP BY SA.[Sales Agent Name]
 ORDER BY total_sales DESC;
 
----2. BEST PERFROMING SALES AGENTS
-SELECT SA.[Sales Agent Name], SUM(S.Profit) as total_profit
+---2. BEST PERFROMING SALES AGENTS- TOTAL PROFIT
+SELECT TOP 3 SA.[Sales Agent Name], ROUND(SUM(S.Profit),2) as total_profit
 FROM Sales S JOIN Sales_agents SA ON S.[Sales Agent Key] = SA.[Sales Agent Key]
 GROUP BY SA.[Sales Agent Name]
 ORDER BY total_profit DESC;
@@ -389,7 +391,7 @@ FROM Sales S
 GROUP BY SA.[Sales Agent Name]
 ORDER BY NUM_STORES DESC;
 
----5. SALES AGENTS WITH NUMBER OF ORDERS
+---5. NUMBER OF ORDERS TAKEN BY EACH SALES AGENT
 SELECT SA.[Sales Agent Name], Count(*) as num_orders
 FROM Sales S JOIN Sales_agents SA ON S.[Sales Agent Key] = SA.[Sales Agent Key]
 GROUP BY SA.[Sales Agent Name]
@@ -412,7 +414,7 @@ GROUP BY SA.[Sales Agent Name], P.[Products Category];
 --- Retrieving data from View
 
 SELECT * FROM SAgent_prod_cat_performance S
-WHERE S.[Sales Agent Name] = 'Toño Prado-Arco'
+WHERE S.[Sales Agent Name] = 'ToÃ±o Prado-Arco'
 ORDER BY total_sales DESC, total_profit DESC;
 
 
@@ -508,3 +510,5 @@ END
 --- EXECUTING STORED PROCEDURE
 EXEC valued_transactions 'high'
 
+
+------------------------------------------------------------------ END ------------------------------------------------------------------------------------------
