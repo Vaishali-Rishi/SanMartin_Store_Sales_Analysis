@@ -3,7 +3,7 @@
 The dataset utilized originates from a challenge supported by FP20 Analytics, portraying sales data from San Martins Stores across multiple locations in Spain.
 
 ## Objective:
-The objective of this project is to comprehensively analyze the sales performance of San Martin stores during January 2021. This analysis will encompass various facets including the assessment of KPIs, understanding geographical variations in sales, and evaluating the effectiveness of sales agents. ​
+The objective of this analysis is to comprehensively analyze the sales performance of San Martin stores during January 2021. This analysis will encompass various facets including the assessment of KPIs, understanding geographical variations in sales, and evaluating the effectiveness of sales agents. ​
 Additionally, the project aims to segment customers based on relevant criteria and conduct an in-depth analysis of product performance, fulfillment timelines, and associated costs. Through this analysis, insights will be derived to inform strategic decision-making and optimize sales strategies for San Martin stores.​
 
 ## Tools used- 
@@ -58,7 +58,7 @@ The analysis mentioned above was conducted using Microsoft SQL Server. To access
 
 
 ## Data Visualization:
-For a dynamic display of sales performance on a live dashboard, navigate to the Power BI report.
+For a dynamic display of sales performance on a live dashboard, navigate to the [Power BI report](https://app.powerbi.com/groups/me/reports/15fc6012-6984-47df-b6bc-9220652f04f0/ReportSection45df9ca32ec25a2f19e6?experience=power-bi).
 
 ## Presentation and Insights:
 To access the insights obtained, please refer to the PowerPoint presentation.
